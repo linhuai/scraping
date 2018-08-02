@@ -9,6 +9,7 @@
     (global.Scraping = factory());
 }(this, (function () {
   "use strict";
+
   var Scraping = function (options) {
     if (!(options instanceof Object)) {
       throw new Error('参数是一个Object类型');
@@ -20,61 +21,52 @@
       canvasId: options.canvasId || '#canvas',
       canvasImg: options.canvasImg,
       canvasColor: options.canvasColor || '#333',
-      percent: options.percent || 90, // 回调函数 调用时间
+      percent: options.percent || 90, // 回调函数 调用的百分比
       callback: options.callback      // 回调函数
     }
 
-    var $canvasWrap = document.getElementById(this.opts.canvasWrapId.replace('#', ''));
-    var $canvas = document.getElementById(this.opts.canvasId.replace('#', ''));
+    this.$canvasWrap = document.getElementById(this.opts.canvasWrapId.replace('#', ''));
+    this.$canvas = document.getElementById(this.opts.canvasId.replace('#', ''));
 
-    if (!$canvasWrap) throw new Error('canvaswrap 不存在');
-    if (!$canvas) throw new Error('canvas 不存在');
+    if (!this.$canvasWrap) throw new Error('canvaswrap 不存在');
+    if (!this.$canvas) throw new Error('canvas 不存在');
 
-    this.$canvasWrap = $canvasWrap
-    this.$canvas = $canvas
-    this.$ctx = $canvas.getContext('2d')
+    this.$ctx = this.$canvas.getContext('2d')
 
     this.init()
   }
   Scraping.prototype = {
     init: function () {
-      this.canvas()
+      this.initCanvas()
       this.addEvent()
     },
-    canvas: function () {
-      var $canvasWrap = this.$canvasWrap
-      var $canvas = this.$canvas
-      var ctx = $canvas.getContext('2d')
+    initCanvas: function () {
+      var width = this.$canvasWrap.offsetWidth
+      var height = this.$canvasWrap.offsetHeight
 
-      var width = $canvasWrap.offsetWidth
-      var height = $canvasWrap.offsetHeight
+      this.$canvas.setAttribute('width', width)
+      this.$canvas.setAttribute('height', height)
 
-      $canvas.setAttribute('width', width)
-      $canvas.setAttribute('height', height)
+      this.$canvas.style.position = 'absolute'
+      this.$canvas.style.left = 0
+      this.$canvas.style.top = 0
 
-      $canvas.style.position = 'absolute'
-      $canvas.style.left = 0
-      $canvas.style.top = 0
-
-      ctx.beginPath()
+      this.$ctx.beginPath()
       if (this.opts.canvasImg) {
         var img = new Image()
         img.src = this.opts.canvasImg
-        img.onload = function(){
-          ctx.drawImage(img,0,0,canvas.width,canvas.height)
+        img.onload = () => {
+          this.$ctx.drawImage(img,0,0,canvas.width,canvas.height)
         }
       } else {
-        ctx.fillStyle = '#333'
-        ctx.fillRect(0, 0, width, height)
+        this.$ctx.fillStyle = '#333'
+        this.$ctx.fillRect(0, 0, width, height)
       }
-      ctx.closePath()
-      ctx.fill()
+      this.$ctx.closePath()
+      this.$ctx.fill()
     },
     addEvent: function () {
       var self = this
-      var $canvas = this.$canvas
-      var $canvasWrap = this.$canvasWrap
-
       var hasTouch = 'ontouchstart' in window ? true : false
       var tapstart = hasTouch ? 'touchstart' : 'mousedown'
       var tapmove = hasTouch ? 'touchmove' : 'mousemove'
@@ -82,6 +74,11 @@
 
       var isTapstart = false
       var pointerArr = []
+      var $canvasWrap = this.$canvasWrap
+      var $canvas = this.$canvas
+      var $ctx = this.$ctx
+
+      // 鼠标/手指 点击事件
       $canvas.addEventListener(tapstart, function (e) {
         isTapstart = true
         pointerArr.push(getPointer(e))
@@ -90,7 +87,7 @@
         $canvas.addEventListener(tapend, tapendHandler)
       })
 
-
+      // 鼠标/手指 移动事件
       function tapmoveHandler (e) {
         e.preventDefault()
         if (isTapstart) {
@@ -99,6 +96,7 @@
         }
       }
 
+      // 鼠标/手指 离开事件
       function tapendHandler (e) {
         if (isTapstart) {
           eraser()
@@ -116,26 +114,24 @@
         }
       }
 
-      var ctx = this.$canvas.getContext('2d')
-
       // 橡皮擦
       function eraser () {
-        ctx.beginPath();
-        ctx.moveTo(pointerArr[0][0], pointerArr[0][1]);
-        ctx.lineCap = "round";　　 //设置线条两端为圆弧
-        ctx.lineJoin = "round";　　 //设置线条转折为圆弧
-        ctx.lineWidth = 30;
-        ctx.globalCompositeOperation = "destination-out";
+        $ctx.beginPath();
+        $ctx.moveTo(pointerArr[0][0], pointerArr[0][1]);
+        $ctx.lineCap = "round";　　 //设置线条两端为圆弧
+        $ctx.lineJoin = "round";　　 //设置线条转折为圆弧
+        $ctx.lineWidth = 30;
+        $ctx.globalCompositeOperation = "destination-out";
         if (pointerArr.length == 1) {
             ctx.lineTo(pointerArr[0][0], pointerArr[0][1]);
         } else {
             for (var i=1;i<pointerArr.length;i++) {
-                ctx.lineTo(pointerArr[i][0], pointerArr[i][1]);
-                ctx.moveTo(pointerArr[i][0], pointerArr[i][1]);
+              $ctx.lineTo(pointerArr[i][0], pointerArr[i][1]);
+              $ctx.moveTo(pointerArr[i][0], pointerArr[i][1]);
             }
         }
-        ctx.stroke();
-        ctx.restore();
+        $ctx.stroke();
+        $ctx.restore();
       }
 
       function getPointer (e) {
