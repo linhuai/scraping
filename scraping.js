@@ -1,5 +1,7 @@
 /*
  * 刮一刮效果
+ * 1. canvasWrap 要设置 position: relative / absolute
+ * 2. canvasWrap 父元素及祖先先素不能有 position: relative / absolute
  */
 ;(function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
@@ -17,7 +19,9 @@
       canvasWrapId: options.canvasWrapId || '#canvas-wrap',
       canvasId: options.canvasId || '#canvas',
       canvasImg: options.canvasImg,
-      canvasColor: options.canvasColor || '#333'
+      canvasColor: options.canvasColor || '#333',
+      percent: options.percent || 90, // 回调函数 调用时间
+      callback: options.callback      // 回调函数
     }
 
     var $canvasWrap = document.getElementById(this.opts.canvasWrapId.replace('#', ''));
@@ -27,7 +31,8 @@
     if (!$canvas) throw new Error('canvas 不存在');
 
     this.$canvasWrap = $canvasWrap
-    this.$canvas = $canvas;
+    this.$canvas = $canvas
+    this.$ctx = $canvas.getContext('2d')
 
     this.init()
   }
@@ -47,6 +52,10 @@
       $canvas.setAttribute('width', width)
       $canvas.setAttribute('height', height)
 
+      $canvas.style.position = 'absolute'
+      $canvas.style.left = 0
+      $canvas.style.top = 0
+
       ctx.beginPath()
       if (this.opts.canvasImg) {
         var img = new Image()
@@ -62,43 +71,55 @@
       ctx.fill()
     },
     addEvent: function () {
+      var self = this
+      var $canvas = this.$canvas
+      var $canvasWrap = this.$canvasWrap
+
       var hasTouch = 'ontouchstart' in window ? true : false
       var tapstart = hasTouch ? 'touchstart' : 'mousedown'
       var tapmove = hasTouch ? 'touchmove' : 'mousemove'
       var tapend = hasTouch ? 'touchend' : 'mouseup'
 
-      var $canvas = this.$canvas
       var isTapstart = false
       var pointerArr = []
-      $canvas.addEventListener(tapstart, tapstartHandler)
-      $canvas.addEventListener(tapmove, tapmoveHandler)
-      $canvas.addEventListener(tapend, tapendHandler)
-
-      function tapstartHandler (e) {
+      $canvas.addEventListener(tapstart, function (e) {
         isTapstart = true
-        var pointer = getPointer(e)
-        pointerArr.push(pointer)
-      }
+        pointerArr.push(getPointer(e))
+
+        $canvas.addEventListener(tapmove, tapmoveHandler)
+        $canvas.addEventListener(tapend, tapendHandler)
+      })
+
 
       function tapmoveHandler (e) {
+        e.preventDefault()
         if (isTapstart) {
-          var pointer = getPointer(e)
-          pointerArr.push(pointer)
+          pointerArr.push(getPointer(e))
           eraser()
         }
       }
 
-      function tapendHandler () {
-        eraser()
-        isTapstart = false
-        pointerArr = []
+      function tapendHandler (e) {
+        if (isTapstart) {
+          eraser()
+          isTapstart = false
+          pointerArr = []
+
+          $canvas.removeEventListener(tapmove, tapmoveHandler)
+          $canvas.removeEventListener(tapend, tapendHandler)
+
+          var percent = self.getPercent()
+          if (percent >= self.opts.percent) {
+            $canvas.style.opacity = 0
+            self.opts.callback && self.opts.callback()
+          }
+        }
       }
 
       var ctx = this.$canvas.getContext('2d')
 
       // 橡皮擦
       function eraser () {
-        ctx.save();
         ctx.beginPath();
         ctx.moveTo(pointerArr[0][0], pointerArr[0][1]);
         ctx.lineCap = "round";　　 //设置线条两端为圆弧
@@ -113,16 +134,34 @@
                 ctx.moveTo(pointerArr[i][0], pointerArr[i][1]);
             }
         }
-        ctx.closePath();
         ctx.stroke();
         ctx.restore();
       }
 
       function getPointer (e) {
-        var x = hasTouch ? e.targetTouches[0].pageX - $canvas.offsetLeft : e.pageX - $canvas.offsetLeft
-        var y = hasTouch ? e.targetTouches[0].pageY - $canvas.offsetTop : e.pageY - $canvas.offsetTop
+        var x = (hasTouch ? e.targetTouches[0].pageX : e.pageX) - $canvasWrap.offsetLeft
+        var y = (hasTouch ? e.targetTouches[0].pageY : e.pageY) - $canvasWrap.offsetTop
         return [x, y]
       }
+    },
+    getPercent: function() {
+      var percent = 0
+      var counter = 0
+      var imageData = this.$ctx.getImageData(0, 0, this.$canvas.width, this.$canvas.height);
+      var imageDataLength = imageData.data.length;
+
+      for(var i = 0; i < imageDataLength; i += 4) {
+        if (imageData.data[i] === 0 && imageData.data[i+1] === 0 && imageData.data[i+2] === 0 && imageData.data[i+3] === 0) {
+          counter++;
+        }
+      }
+
+      if (counter >= 1) {
+        percent = (counter / (this.$canvas.width * this.$canvas.height)) * 100;
+      } else {
+        percent = 0;
+      }
+      return percent;
     }
   }
   return Scraping;
