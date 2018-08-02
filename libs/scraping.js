@@ -59,7 +59,7 @@
           this.$ctx.drawImage(img,0,0,canvas.width,canvas.height)
         }
       } else {
-        this.$ctx.fillStyle = '#333'
+        this.$ctx.fillStyle = this.opts.canvasColor
         this.$ctx.fillRect(0, 0, width, height)
       }
       this.$ctx.closePath()
